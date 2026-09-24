@@ -32,8 +32,8 @@ button,select,.pos{touch-action:manipulation}
 .pos .d{display:none;margin-top:4px;padding-top:4px;border-top:1px dashed #333;font-size:10px;gap:3px;flex-direction:column}
 .pos.x .d{display:flex}.pos .d span:first-child{color:#8892b0}
 .pos button{background:transparent;border:1px solid #ffcc00;color:#ffcc00;border-radius:4px;font-size:11px;font-weight:800;padding:8px 4px;cursor:pointer;min-height:32px;flex:1 1 0;min-width:0}
-.pos .btns{display:flex;gap:6px;margin-top:4px}
-.pos button[data-tp]{color:#00e5ff}
+.pos .btns{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.pos button[data-tp]{color:#c9700e}
 .bar{display:flex;flex-direction:column;flex:none;gap:0;padding:0;border-top:1px solid #fff}
 .seg{display:flex;align-items:stretch;border:1px solid #fff;border-radius:6px;overflow:hidden;height:48px;width:100%}
 .seg>*{flex:1 1 0;min-width:0;border:0;border-right:1px solid #fff;border-radius:0;background:transparent;color:#fff;font:700 14px inherit;text-align:center;outline:0;margin:0;padding:0 6px;cursor:pointer;display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -150,14 +150,15 @@ body{padding-left:env(safe-area-inset-left,0);padding-right:env(safe-area-inset-
   <div class="bar">
       <div class="seg seg1">
       <div id="stakeW"><select id="stake" aria-label="Lot size"><option value="1">1 lot</option></select><div id="stakeL"></div></div>
-      <span style="display:none">x200</span><input type="hidden" id="lev" value="200">
-      <button id="dn" class="dn">SELL</button><button id="up" class="up">BUY</button><span id="bal" title="Tap to refresh balance">Loading...</span>
+            <input type="number" id="tpBtn" aria-label="Take profit price" placeholder="TP" step="any" inputmode="decimal" style="color:#c9700e">
+            <span style="display:none">x200</span><input type="hidden" id="lev" value="200">
+            <button id="dn" class="dn">SELL</button><button id="up" class="up">BUY</button><span id="bal" title="Tap to refresh balance">Loading...</span>
       </div>
       <div class="seg seg2">
       
       <select id="pair" aria-label="Pair" style="color:#00e5ff" disabled><option>BTCUSD</option></select>
       <select id="tf" aria-label="Timeframe"><option value="5" selected>5s</option><option value="60">1m</option><option value="300">5m</option><option value="3600">1H</option></select>
-      <button id="codeBtn" style="color:#38bdf8;font-size:11px;display:none">CODE</button>
+            <button id="codeBtn" style="color:#38bdf8;font-size:11px;display:none">CODE</button>
       <button id="posBtn" style="color:#fff">POSITION</button>
       <button id="fsBtn" style="color:#fff" aria-label="Fullscreen">⛶</button>
       </div>
@@ -282,7 +283,7 @@ function draw(){
  if(!ctx)return;ctx.clearRect(0,0,W,H);
  const all=data[pair]||[];
  if(!all.length){$('load').style.display='block';return}$('load').style.display='none';
- const YW=0,LW=56,XH=0,CA=caW(),CH=H;pan=clampPan(pan);
+ const YW=0,LW=68,XH=0,CA=caW(),CH=H;pan=clampPan(pan);
  const end=all.length-pan,start=Math.max(0,end-maxVis()),vis=all.slice(start,end),live=pan===0;
  let mn=Infinity,mx=-Infinity;vis.forEach(c=>{mn=Math.min(mn,c.low);mx=Math.max(mx,c.high)});
  const rg=(mx-mn)||1,pMin=mn-rg*.08,pMax=mx+rg*.08,pR=pMax-pMin,vm=Math.min(50,CH*.12),ph=Math.max(1,CH-vm*2);
@@ -309,28 +310,27 @@ function draw(){
  const P={visibleCandles:vis,sliceStart:start,getY:Y,chartAreaWidth:CA,totalCandleWidth:TW};
  indicators.forEach(i=>{ctx.save();try{i.draw(ctx,P)}catch(e){console.error(e)}ctx.restore()});
   
- const box=(y,txt,col)=>{ctx.fillStyle=col;ctx.fillRect(W-LW,y-11,LW,22);ctx.fillStyle='#f4f0ff';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold 12px sans-serif';ctx.fillText(txt,W-LW/2,y)};
- const dash=(y,col,lab,pos)=>{ctx.strokeStyle=col;ctx.setLineDash([4,3]);ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W-YW,y);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle=col;ctx.font='bold 12px sans-serif';ctx.textAlign='right';ctx.textBaseline=pos;ctx.fillText(lab,W-LW-4,y+(pos==='top'?2:-2))};
+ const box=(y,txt,col)=>{ctx.fillStyle=col;ctx.fillRect(W-LW,y-17,LW,34);ctx.fillStyle='#f4f0ff';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold 16px sans-serif';ctx.fillText(txt,W-LW/2,y)};
+  const dash=(y,col,lab,pos)=>{ctx.strokeStyle=col;ctx.setLineDash([4,3]);ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W-YW,y);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle=col;ctx.font='bold 16px sans-serif';ctx.textAlign='right';ctx.textBaseline=pos;ctx.fillText(lab,W-LW-4,y+(pos==='top'?2:-2))};
  const clampY=y=>Math.max(vm,Math.min(CH-vm,y));
  if(live)Object.values(positions).filter(p=>p.sym===pair).forEach(p=>{
-  const ey=clampY(Y(p.entry));dash(ey,'#e07b00',`x${p.lev||''} ENTRY`,'bottom');box(ey,p.entry.toFixed(d),'#e07b00');
-  const by=clampY(Y(p.be));dash(by,'#8c5a12',`Fee covered ${both(p.fee)}`,'top');box(by,p.be.toFixed(d),'#8c5a12');
-  if(TP[p.id]!=null){var ty=clampY(Y(+TP[p.id]));dash(ty,'#00e5ff',`TP ${(+TP[p.id]).toFixed(d)}`,p.up?'top':'bottom')}
- });
+   const ey=clampY(Y(p.entry));dash(ey,'#e07b00',`x${p.lev||''} ENTRY`,'bottom');box(ey,p.entry.toFixed(d),'#e07b00');
+   const by=clampY(Y(p.be));dash(by,'#8c5a12',`Fee covered ${both(p.fee)}`,'top');box(by,p.be.toFixed(d),'#8c5a12');
+   if(TP[p.id]!=null){var ty=clampY(Y(+TP[p.id]));dash(ty,'#c9700e',`TP ${(+TP[p.id]).toFixed(d)}`,p.up?'top':'bottom');box(ty,(+TP[p.id]).toFixed(d),'#c9700e')}
+   if(p.liq){var ly=clampY(Y(+p.liq));dash(ly,'#E8083E',`LIQUIDATION`,p.up?'bottom':'top');box(ly,(+p.liq).toFixed(d),'#E8083E')}
+  });
  if(live){
-  const last=all[all.length-1],y=Y(last.close),col=last.close>=last.open?'#02864A':'#E8083E';
-  ctx.strokeStyle=col;ctx.setLineDash([2,4]);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W-YW,y);ctx.stroke();ctx.setLineDash([]);
-  const rem=Math.max(0,last.time+gran()-Math.floor(Date.now()/1000)),m=Math.floor(rem/60),s=rem%60;
-  ctx.fillStyle=col;ctx.textAlign='right';ctx.textBaseline='bottom';ctx.font='bold 12px sans-serif';
-  
-  ctx.fillStyle=col;ctx.fillRect(W-LW,y-13,LW,26);ctx.fillStyle='#f4f0ff';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold 13px sans-serif';ctx.fillText(last.close.toFixed(d),W-LW/2,y);
+   const last=all[all.length-1],y=Y(last.close),col=last.close>=last.open?'#02864A':'#E8083E';
+   ctx.strokeStyle=col;ctx.setLineDash([2,4]);ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W-YW,y);ctx.stroke();ctx.setLineDash([]);
+   ctx.fillStyle=col;ctx.font='bold 16px sans-serif';ctx.textAlign='right';ctx.textBaseline='bottom';ctx.fillText('LIVE',W-LW-4,y-2);
+   ctx.fillStyle=col;ctx.fillRect(W-LW,y-17,LW,34);ctx.fillStyle='#f4f0ff';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold 16px sans-serif';ctx.fillText(last.close.toFixed(d),W-LW/2,y);
   const op=Object.values(positions).filter(p=>p.sym===pair);
     if(op.length){const pl=op.reduce((a,p)=>a+p.pl,0),st=op.reduce((a,p)=>a+p.margin,0),bx=CA+(W-YW-8-CA)*.3;
-     ctx.font='bold 12px sans-serif';ctx.textBaseline='top';ctx.textAlign='center';
-     ctx.fillStyle=op[0].up?'#02864A':'#E8083E';ctx.fillText(op[0].up?'BUY':'SELL',bx,y-60);
-     ctx.fillStyle=pl>=0?'#02864A':'#E8083E';ctx.font='bold 11px sans-serif';ctx.fillText(both(st+pl),bx,y-46);ctx.fillText('P/L '+both(pl),bx,y-32);
-     const cb={x:bx-25,y:y-18,w:50,h:16};ctx.fillStyle='rgba(246,230,208,.95)';ctx.fillRect(cb.x,cb.y,cb.w,cb.h);ctx.strokeStyle='#E8083E';ctx.lineWidth=1;ctx.strokeRect(cb.x,cb.y,cb.w,cb.h);
-     ctx.fillStyle='#E8083E';ctx.font='bold 10px sans-serif';ctx.fillText('CLOSE',bx,y-15);chartCloseBtn=cb}
+         ctx.font='bold 16px sans-serif';ctx.textBaseline='top';ctx.textAlign='center';
+         ctx.fillStyle=op[0].up?'#02864A':'#E8083E';ctx.fillText(op[0].up?'BUY':'SELL',bx,y-78);
+         ctx.fillStyle=pl>=0?'#02864A':'#E8083E';ctx.font='bold 15px sans-serif';ctx.fillText(both(st+pl),bx,y-58);ctx.font='bold 14px sans-serif';ctx.fillText('P/L '+both(pl),bx,y-40);
+         const cb={x:bx-38,y:y-22,w:76,h:26};ctx.fillStyle='rgba(246,230,208,.95)';ctx.fillRect(cb.x,cb.y,cb.w,cb.h);ctx.strokeStyle='#E8083E';ctx.lineWidth=2;ctx.strokeRect(cb.x,cb.y,cb.w,cb.h);
+         ctx.fillStyle='#E8083E';ctx.font='bold 14px sans-serif';ctx.fillText('CLOSE',bx,y-9);chartCloseBtn=cb}
     else chartCloseBtn=null;
     resetBtn=null;
    }else{
@@ -398,6 +398,7 @@ function switchView(){
  pan=0;wsSub('unsubscribe');localStorage.setItem('d_pair',pair);fillLots();
  if(!(data[pair]||[]).length){$('load').style.display='block';backfill(pair,gran()).then(()=>wsSub('subscribe'))}
  else{recalc();draw();wsSub('subscribe')}
+ syncTpBtn();
 }
 $('pair').onchange=e=>{pair=e.target.value;switchView()};
 $('tf').onchange=()=>{data={};switchView()};
@@ -417,7 +418,7 @@ async function poll(){
       const pl=(last-entry)*size*pr.cv,mkFee=Math.abs(size)*pr.cv*entry*mk,fee=mkFee+Math.abs(size)*pr.cv*entry*pr.taker,margin=+r.margin||0;
       np[r.product_id]={id:r.product_id,sym,size,up,entry,pl,margin,fee,mkFee,lev:lastLev[sym]||'',be:entry*(1+(up?1:-1)*(mk+pr.taker)),liq:r.liquidation_price,time:r.created_at};
   });
-  positions=np;renderPositions();LASTERR='';
+  positions=np;applyAllPendingTp();renderPositions();LASTERR='';
   const asset=(products[pair]||{}).settle,rows=b.result||[],row=rows.find(x=>x.asset_symbol===asset)||rows.find(x=>+x.balance>0)||rows[0];
   if(row){var bv=+(row.available_balance??row.balance);AVAIL=bv;var be=$('bal');be.dataset.usd=`$${bv.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;be.textContent=be.dataset.usd;be.style.color='var(--tx)'}
  }catch(e){LASTERR=String(e.message||e);var m=LASTERR,t='KEYS?';if(m.indexOf('placeholder key')>-1)t='PASTE KEY';else if(m.indexOf('ip_not_whitelisted')>-1)t='IP?';else if(m.indexOf('expired_signature')>-1)t='CLOCK?';else if(m.indexOf('invalid_api_key')>-1)t='BAD KEY';else if(m.toLowerCase().indexOf('signature')>-1)t='BAD SECRET';else if(m.indexOf('Signing needs')>-1)t='HTTPS?';else if(m.indexOf('missing in the file')>-1)t='NO KEY';else if(m.indexOf('Failed to fetch')>-1)t='NETWORK?';$('bal').textContent=t;$('bal').style.color='#E8083E';console.warn(m)}
@@ -447,6 +448,7 @@ function renderPositions(){
  trackClosed();
  const box=$('plist'),sl=box.scrollLeft;
  renderOpen();
+ syncTpBtn();
  const cl=closedHtml();
  if(cl){
   const em=box.querySelector('.empty');if(em)em.remove();
@@ -461,8 +463,8 @@ function renderOpen(){
  box.innerHTML=l.map(p=>{const c=p.pl>=0?'#02864A':'#E8083E',d=dp(p.entry);
   return `<div class="pos${openX[p.id]?' x':''}" data-id="${p.id}"><div class="t"><span>${p.sym} ${p.up?'BUY':'SELL'} ${p.lev?'x'+p.lev:''}</span><span style="color:${c}">${both(p.pl)}</span></div>
   <div class="b"><span>${both(p.margin)}</span><span>${Math.abs(p.size)} contracts</span></div>
-  <div class="d"><div><span>Entry price</span><span>${p.entry.toFixed(d)}</span></div><div><span>Breakeven (fees)</span><span style="color:#8c5a12">${p.be.toFixed(d)}</span></div><div><span>Fees (round trip)</span><span style="color:#8c5a12">${both(p.fee)}</span></div><div><span>Liquidation</span><span>${p.liq?(+p.liq).toFixed(d):'--'}</span></div><div><span>Take profit</span><span style="color:#00e5ff">${TP[p.id]!=null?(+TP[p.id]).toFixed(d):'--'}</span></div></div>
-  <div class="btns"><button data-tp="${p.id}">${TP[p.id]!=null?'TP '+(+TP[p.id]).toFixed(d):'SET TP'}</button><button data-close="${p.id}">CLOSE</button></div></div>`}).join('');
+  <div class="d"><div><span>Entry price</span><span>${p.entry.toFixed(d)}</span></div><div><span>Breakeven (fees)</span><span style="color:#8c5a12">${p.be.toFixed(d)}</span></div><div><span>Fees (round trip)</span><span style="color:#8c5a12">${both(p.fee)}</span></div><div><span>Liquidation</span><span>${p.liq?(+p.liq).toFixed(d):'--'}</span></div><div><span>Take profit</span><span style="color:#c9700e">${TP[p.id]!=null?(+TP[p.id]).toFixed(d):'--'}</span></div></div>
+  <div class="btns"><button data-close="${p.id}">CLOSE</button><button data-tp="${p.id}">${TP[p.id]!=null?'TP '+(+TP[p.id]).toFixed(d):'SET TP'}</button></div></div>`}).join('');
  box.querySelectorAll('.pos').forEach(el=>el.onclick=e=>{if(e.target.dataset.close||e.target.dataset.tp)return;openX[el.dataset.id]=!openX[el.dataset.id];el.classList.toggle('x')});
  box.querySelectorAll('[data-close]').forEach(b=>b.onclick=e=>{e.stopPropagation();closePos(+b.dataset.close)});
  box.querySelectorAll('[data-tp]').forEach(b=>b.onclick=e=>{e.stopPropagation();openTp(+b.dataset.tp)});
@@ -472,21 +474,46 @@ function renderOpen(){
 var TP={},tpPending={},tpTarget=null;
 try{TP=JSON.parse(localStorage.getItem('d_tp')||'{}')||{}}catch(e){TP={}}
 function saveTp(){try{localStorage.setItem('d_tp',JSON.stringify(TP))}catch(e){}}
+var PENDING_TP={},tpPendingPair=null;
+try{PENDING_TP=JSON.parse(localStorage.getItem('d_ptp')||'{}')||{}}catch(e){PENDING_TP={}}
+function savePtp(){try{localStorage.setItem('d_ptp',JSON.stringify(PENDING_TP))}catch(e){}}
+function applyAllPendingTp(){
+ var changed=false;
+ Object.keys(PENDING_TP).forEach(function(sym){
+  var ps=Object.values(positions).filter(function(p){return p.sym===sym});
+  if(!ps.length)return;
+  TP[ps[0].id]=PENDING_TP[sym];saveTp();
+  delete PENDING_TP[sym];changed=true;
+ });
+ if(changed)savePtp();
+}
 function openTp(id){
  var p=positions[id];if(!p)return;
- tpTarget=id;
+ tpTarget=id;tpPendingPair=null;
  $('tpTitle').textContent='TP · '+p.sym+' '+(p.up?'BUY':'SELL');
  $('tpInput').value=TP[id]!=null?TP[id]:'';
  $('tpM').style.display='flex';
  setTimeout(function(){$('tpInput').focus()},0);
 }
+function openTpPre(sym){
+ tpTarget=null;tpPendingPair=sym;
+ $('tpTitle').textContent='TP · '+sym+' (applies on next trade)';
+ $('tpInput').value=PENDING_TP[sym]!=null?PENDING_TP[sym]:'';
+ $('tpM').style.display='flex';
+ setTimeout(function(){$('tpInput').focus()},0);
+}
 $('tpX').onclick=function(){$('tpM').style.display='none'};
 $('tpM').onclick=function(e){if(e.target.id==='tpM')$('tpM').style.display='none'};
-$('tpClear').onclick=function(){if(tpTarget!=null){delete TP[tpTarget];saveTp()}$('tpM').style.display='none';renderPositions()};
+$('tpClear').onclick=function(){
+ if(tpTarget!=null){delete TP[tpTarget];saveTp()}
+ else if(tpPendingPair!=null){delete PENDING_TP[tpPendingPair];savePtp()}
+ $('tpM').style.display='none';renderPositions();
+};
 $('tpSave').onclick=function(){
  var v=+$('tpInput').value;
  if(!v||v<=0)return alert('Enter a valid target price.');
  if(tpTarget!=null){TP[tpTarget]=v;saveTp()}
+ else if(tpPendingPair!=null){PENDING_TP[tpPendingPair]=v;savePtp()}
  $('tpM').style.display='none';renderPositions();
 };
 function checkTp(){
@@ -500,6 +527,35 @@ function checkTp(){
  });
 }
 setInterval(checkTp,1000);
+function syncTpBtn(){
+ var b=$('tpBtn');if(!b||document.activeElement===b)return;
+ var ps=Object.values(positions).filter(function(p){return p.sym===pair});
+ if(!ps.length){
+  var pv=PENDING_TP[pair];
+  b.value=pv!=null?pv:'';
+  return;
+ }
+ var p=ps[0];
+ b.value=TP[p.id]!=null?TP[p.id]:'';
+}
+function commitTpBtn(){
+ var b=$('tpBtn');if(!b)return;
+ var raw=b.value.trim();
+ var ps=Object.values(positions).filter(function(p){return p.sym===pair});
+ if(raw===''){
+  if(ps.length){if(TP[ps[0].id]!=null){delete TP[ps[0].id];saveTp()}}
+  else if(PENDING_TP[pair]!=null){delete PENDING_TP[pair];savePtp()}
+  renderPositions();
+  return;
+ }
+ var v=+raw;if(!v||v<=0)return;
+ if(ps.length){TP[ps[0].id]=v;saveTp()}
+ else{PENDING_TP[pair]=v;savePtp()}
+ renderPositions();
+}
+$('tpBtn').oninput=commitTpBtn;
+$('tpBtn').onkeydown=function(e){if(e.key==='Enter')$('tpBtn').blur()};
+syncTpBtn();
 
 /* ---------- trading ---------- */
 async function trade(up){
@@ -516,18 +572,27 @@ async function trade(up){
   if(lv.success===false)throw new Error('Leverage: '+JSON.stringify(lv.error));
   lastLev[pair]=lev;
   const r=await api('POST','/v2/orders',{auth:true,body});
-  if(!r.success)throw new Error(JSON.stringify(r.error));
-  poll();
- }catch(e){alert('Order failed: '+e.message)}
-}
-async function closePos(id){
- const p=positions[id];if(!p)return;
- try{
-  const r=await api('POST','/v2/orders',{auth:true,body:{product_id:p.id,side:p.up?'sell':'buy',size:Math.abs(p.size),order_type:'market_order',reduce_only:true}});
-  if(!r.success)throw new Error(JSON.stringify(r.error));
-  poll();
- }catch(e){alert('Close failed: '+e.message)}
-}
+    if(!r.success)throw new Error(JSON.stringify(r.error));
+    await poll();
+        applyAllPendingTp();
+        renderPositions();
+       }catch(e){alert('Order failed: '+e.message)}
+  }
+  var CLOSING={};
+  async function closePos(id){
+   const p=positions[id];if(!p)return;
+   if(CLOSING[id])return;
+   CLOSING[id]=true;
+   try{
+    const r=await api('POST','/v2/orders',{auth:true,body:{product_id:p.id,side:p.up?'sell':'buy',size:Math.abs(p.size),order_type:'market_order',reduce_only:true}});
+    if(!r.success)throw new Error(JSON.stringify(r.error));
+    await poll();
+   }catch(e){
+    var msg=e.message||'';
+    if(msg.indexOf('no_position_for_reduce_only')>-1){await poll()}
+    else alert('Close failed: '+msg);
+   }finally{delete CLOSING[id]}
+  }
 $('up').onclick=()=>trade(true);$('dn').onclick=()=>trade(false);
 
 /* ---------- balance tap = refresh ---------- */
