@@ -2,6 +2,13 @@
 <html lang="en"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Multiplier Dashboard - Delta</title><meta name="theme-color" content="#f6e6d0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Delta">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="application-name" content="Delta">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700;800&family=Roboto+Condensed:wght@500;700&display=swap" rel="stylesheet">
 <style>
 html,body{height:100%}
@@ -160,7 +167,8 @@ body{padding-left:env(safe-area-inset-left,0);padding-right:env(safe-area-inset-
       <select id="tf" aria-label="Timeframe"><option value="5" selected>5s</option><option value="60">1m</option><option value="300">5m</option><option value="3600">1H</option></select>
             <button id="codeBtn" style="color:#38bdf8;font-size:11px;display:none">CODE</button>
       <button id="posBtn" style="color:#fff">POSITION</button>
-      <button id="fsBtn" style="color:#fff" aria-label="Fullscreen">⛶</button>
+      <button id="fsBtn" style="display:none" tabindex="-1" aria-label="Fullscreen">⛶</button>
+      <input type="number" id="slBtn" aria-label="Stop loss price" placeholder="SL" step="any" inputmode="decimal" style="color:#c2185b">
       </div>
      </div>
 </div>
@@ -317,6 +325,7 @@ function draw(){
    const ey=clampY(Y(p.entry));dash(ey,'#e07b00',`x${p.lev||''} ENTRY`,'bottom');box(ey,p.entry.toFixed(d),'#e07b00');
    const by=clampY(Y(p.be));dash(by,'#8c5a12',`Fee covered ${both(p.fee)}`,'top');box(by,p.be.toFixed(d),'#8c5a12');
    if(TP[p.id]!=null){var ty=clampY(Y(+TP[p.id]));dash(ty,'#c9700e',`TP ${(+TP[p.id]).toFixed(d)}`,p.up?'top':'bottom');box(ty,(+TP[p.id]).toFixed(d),'#c9700e')}
+   if(SL[p.id]!=null){var sy=clampY(Y(+SL[p.id]));dash(sy,'#c2185b',`SL ${(+SL[p.id]).toFixed(d)}`,p.up?'bottom':'top');box(sy,(+SL[p.id]).toFixed(d),'#c2185b')}
    if(p.liq){var ly=clampY(Y(+p.liq));dash(ly,'#E8083E',`LIQUIDATION`,p.up?'bottom':'top');box(ly,(+p.liq).toFixed(d),'#E8083E')}
   });
  if(live){
@@ -399,6 +408,7 @@ function switchView(){
  if(!(data[pair]||[]).length){$('load').style.display='block';backfill(pair,gran()).then(()=>wsSub('subscribe'))}
  else{recalc();draw();wsSub('subscribe')}
  syncTpBtn();
+ syncSlBtn();
 }
 $('pair').onchange=e=>{pair=e.target.value;switchView()};
 $('tf').onchange=()=>{data={};switchView()};
@@ -430,6 +440,7 @@ function trackClosed(){
  Object.keys(PREV).forEach(function(id){
   if(positions[id])return;
   if(TP[id]!=null){delete TP[id];saveTp()}
+  if(SL[id]!=null){delete SL[id];saveSl()}
   var p=PREV[id],pr=products[p.sym]||{cv:.001},a=data[p.sym],ex=a&&a.length?a[a.length-1].close:p.entry;
   CLOSED.unshift({sym:p.sym,up:p.up,size:Math.abs(p.size),lev:p.lev,entry:p.entry,exit:ex,pl:(ex-p.entry)*p.size*pr.cv,fee:p.fee,t:Date.now()});
   ch=true;
@@ -449,6 +460,7 @@ function renderPositions(){
  const box=$('plist'),sl=box.scrollLeft;
  renderOpen();
  syncTpBtn();
+ syncSlBtn();
  const cl=closedHtml();
  if(cl){
   const em=box.querySelector('.empty');if(em)em.remove();
@@ -463,7 +475,7 @@ function renderOpen(){
  box.innerHTML=l.map(p=>{const c=p.pl>=0?'#02864A':'#E8083E',d=dp(p.entry);
   return `<div class="pos${openX[p.id]?' x':''}" data-id="${p.id}"><div class="t"><span>${p.sym} ${p.up?'BUY':'SELL'} ${p.lev?'x'+p.lev:''}</span><span style="color:${c}">${both(p.pl)}</span></div>
   <div class="b"><span>${both(p.margin)}</span><span>${Math.abs(p.size)} contracts</span></div>
-  <div class="d"><div><span>Entry price</span><span>${p.entry.toFixed(d)}</span></div><div><span>Breakeven (fees)</span><span style="color:#8c5a12">${p.be.toFixed(d)}</span></div><div><span>Fees (round trip)</span><span style="color:#8c5a12">${both(p.fee)}</span></div><div><span>Liquidation</span><span>${p.liq?(+p.liq).toFixed(d):'--'}</span></div><div><span>Take profit</span><span style="color:#c9700e">${TP[p.id]!=null?(+TP[p.id]).toFixed(d):'--'}</span></div></div>
+  <div class="d"><div><span>Entry price</span><span>${p.entry.toFixed(d)}</span></div><div><span>Breakeven (fees)</span><span style="color:#8c5a12">${p.be.toFixed(d)}</span></div><div><span>Fees (round trip)</span><span style="color:#8c5a12">${both(p.fee)}</span></div><div><span>Liquidation</span><span>${p.liq?(+p.liq).toFixed(d):'--'}</span></div><div><span>Take profit</span><span style="color:#c9700e">${TP[p.id]!=null?(+TP[p.id]).toFixed(d):'--'}</span></div><div><span>Stop loss</span><span style="color:#c2185b">${SL[p.id]!=null?(+SL[p.id]).toFixed(d):'--'}</span></div></div>
   <div class="btns"><button data-close="${p.id}">CLOSE</button><button data-tp="${p.id}">${TP[p.id]!=null?'TP '+(+TP[p.id]).toFixed(d):'SET TP'}</button></div></div>`}).join('');
  box.querySelectorAll('.pos').forEach(el=>el.onclick=e=>{if(e.target.dataset.close||e.target.dataset.tp)return;openX[el.dataset.id]=!openX[el.dataset.id];el.classList.toggle('x')});
  box.querySelectorAll('[data-close]').forEach(b=>b.onclick=e=>{e.stopPropagation();closePos(+b.dataset.close)});
@@ -478,6 +490,7 @@ var PENDING_TP={},tpPendingPair=null;
 try{PENDING_TP=JSON.parse(localStorage.getItem('d_ptp')||'{}')||{}}catch(e){PENDING_TP={}}
 function savePtp(){try{localStorage.setItem('d_ptp',JSON.stringify(PENDING_TP))}catch(e){}}
 function applyAllPendingTp(){
+ applyAllPendingSl();
  var changed=false;
  Object.keys(PENDING_TP).forEach(function(sym){
   var ps=Object.values(positions).filter(function(p){return p.sym===sym});
@@ -557,6 +570,61 @@ $('tpBtn').oninput=commitTpBtn;
 $('tpBtn').onkeydown=function(e){if(e.key==='Enter')$('tpBtn').blur()};
 syncTpBtn();
 
+/* ---------- stop-loss ---------- */
+var SL={},slPending={},PENDING_SL={};
+try{SL=JSON.parse(localStorage.getItem('d_sl')||'{}')||{}}catch(e){SL={}}
+try{PENDING_SL=JSON.parse(localStorage.getItem('d_psl')||'{}')||{}}catch(e){PENDING_SL={}}
+function saveSl(){try{localStorage.setItem('d_sl',JSON.stringify(SL))}catch(e){}}
+function savePsl(){try{localStorage.setItem('d_psl',JSON.stringify(PENDING_SL))}catch(e){}}
+function lastPx(sym){var a=data[sym];return a&&a.length?a[a.length-1].close:null}
+function slWrongSide(p,v){var l=lastPx(p.sym);if(l==null)return false;return p.up?v>=l:v<=l}
+function applyAllPendingSl(){
+ var changed=false;
+ Object.keys(PENDING_SL).forEach(function(sym){
+  var ps=Object.values(positions).filter(function(p){return p.sym===sym});
+  if(!ps.length)return;
+  var v=PENDING_SL[sym];delete PENDING_SL[sym];changed=true;
+  if(slWrongSide(ps[0],v)){alert('Stop loss '+v+' is on the wrong side of the price for this '+(ps[0].up?'BUY':'SELL')+' and was dropped.');return}
+  SL[ps[0].id]=v;saveSl();
+ });
+ if(changed)savePsl();
+}
+function syncSlBtn(){
+ var b=$('slBtn');if(!b||document.activeElement===b)return;
+ var ps=Object.values(positions).filter(function(p){return p.sym===pair});
+ if(!ps.length){var pv=PENDING_SL[pair];b.value=pv!=null?pv:'';return}
+ b.value=SL[ps[0].id]!=null?SL[ps[0].id]:'';
+}
+function commitSlBtn(){
+ var b=$('slBtn');if(!b)return;
+ var raw=b.value.trim(),ps=Object.values(positions).filter(function(p){return p.sym===pair});
+ if(raw===''){
+  if(ps.length){if(SL[ps[0].id]!=null){delete SL[ps[0].id];saveSl()}}
+  else if(PENDING_SL[pair]!=null){delete PENDING_SL[pair];savePsl()}
+  renderPositions();return;
+ }
+ var v=+raw;
+ if(!v||v<=0){syncSlBtn();return}
+ if(ps.length){
+  if(slWrongSide(ps[0],v)){alert('Stop loss must be '+(ps[0].up?'below':'above')+' the current price for a '+(ps[0].up?'BUY':'SELL')+'.');b.value=SL[ps[0].id]!=null?SL[ps[0].id]:'';return}
+  SL[ps[0].id]=v;saveSl();
+ }else{PENDING_SL[pair]=v;savePsl()}
+ renderPositions();
+}
+function checkSl(){
+ Object.values(positions).forEach(function(p){
+  var sl=SL[p.id];if(sl==null||slPending[p.id])return;
+  var last=lastPx(p.sym);if(last==null)return;
+  if(!(p.up?last<=sl:last>=sl))return;
+  slPending[p.id]=true;
+  closePos(p.id).finally(function(){delete slPending[p.id]});
+ });
+}
+setInterval(checkSl,1000);
+$('slBtn').onchange=commitSlBtn;
+$('slBtn').onkeydown=function(e){if(e.key==='Enter')$('slBtn').blur()};
+syncSlBtn();
+
 /* ---------- trading ---------- */
 async function trade(up){
  const pr=products[pair];if(!pr)return alert('Product info not loaded yet.');
@@ -633,5 +701,29 @@ async function boot(){
  poll();
 }
 setInterval(()=>{if(products[pair])poll()},2000);
+
+/* ---------- PWA: iOS icon + service worker ---------- */
+(function(){
+ try{
+  var pc=document.createElement('canvas');pc.width=pc.height=180;
+  var px=pc.getContext('2d');
+  px.fillStyle='#f6e6d0';px.fillRect(0,0,180,180);
+  var ps=180/512;px.scale(ps,ps);
+  [[176,150,362,200,110,'#E8083E'],[256,120,392,170,170,'#02864A'],[336,170,352,210,100,'#02864A']].forEach(function(k){
+   px.strokeStyle=k[5];px.fillStyle=k[5];px.lineWidth=12;px.lineCap='round';
+   px.beginPath();px.moveTo(k[0],k[1]);px.lineTo(k[0],k[2]);px.stroke();
+   px.fillRect(k[0]-30,k[3],60,k[4]);
+  });
+  var pl=document.createElement('link');
+  pl.rel='apple-touch-icon';pl.href=pc.toDataURL('image/png');
+  document.head.appendChild(pl);
+ }catch(e){console.warn('icon',e.message)}
+ var secure=location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1';
+ function regSw(){navigator.serviceWorker.register('sw.js').catch(function(e){console.warn('sw',e.message)})}
+ if('serviceWorker' in navigator&&secure){
+  if(document.readyState==='complete')regSw();
+  else addEventListener('load',regSw);
+ }
+})();
 boot();
 </script></body></html>
