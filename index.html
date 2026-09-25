@@ -166,7 +166,8 @@ body{padding-left:env(safe-area-inset-left,0);padding-right:env(safe-area-inset-
       <select id="pair" aria-label="Pair" style="color:#00e5ff" disabled><option>BTCUSD</option></select>
       <select id="tf" aria-label="Timeframe"><option value="5" selected>5s</option><option value="60">1m</option><option value="300">5m</option><option value="3600">1H</option></select>
             <button id="codeBtn" style="color:#38bdf8;font-size:11px;display:none">CODE</button>
-      <button id="posBtn" style="color:#fff">POSITION</button>
+                  <button id="pendBtn" style="color:#38bdf8;font-size:11px">PEND</button>
+                  <button id="posBtn" style="color:#fff">POSITION</button>
       <button id="fsBtn" style="display:none" tabindex="-1" aria-label="Fullscreen">⛶</button>
       <input type="number" id="slBtn" aria-label="Stop loss price" placeholder="SL" step="any" inputmode="decimal" style="color:#c2185b">
       </div>
@@ -181,6 +182,20 @@ body{padding-left:env(safe-area-inset-left,0);padding-right:env(safe-area-inset-
  <label>Target price ($) — position auto-closes when reached</label>
  <input type="number" id="tpInput" step="any" inputmode="decimal" placeholder="e.g. 68000">
  <div class="row"><button id="tpClear">Clear</button><button id="tpX">Close</button><button class="ok" id="tpSave">Save</button></div></div></div>
+
+<div class="modal" id="pendM"><div class="box"><h3 id="pendTitle">PENDING ORDER</h3>
+ <label>Side</label>
+ <div class="row" style="justify-content:flex-start"><button id="pendBuyTab" class="ok" style="flex:1">BUY</button><button id="pendSellTab" style="flex:1">SELL</button></div>
+ <label>Trigger price ($) — order fires when price reaches this level</label>
+ <input type="number" id="pendPriceInput" step="any" inputmode="decimal" placeholder="e.g. 68000">
+ <label>Lot size</label>
+  <input type="number" id="pendSizeInput" step="1" min="1" inputmode="numeric" placeholder="lots">
+  <label>Take profit ($) — optional, leave blank to skip</label>
+  <input type="number" id="pendTpInput" step="any" inputmode="decimal" placeholder="optional" style="color:#c9700e">
+  <label>Stop loss ($) — optional, leave blank to skip</label>
+  <input type="number" id="pendSlInput" step="any" inputmode="decimal" placeholder="optional" style="color:#c2185b">
+  <div id="pendList" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow:auto"></div>
+ <div class="row"><button id="pendX">Close</button><button class="ok" id="pendSave">Add Order</button></div></div></div>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -322,13 +337,17 @@ function draw(){
   const dash=(y,col,lab,pos)=>{ctx.strokeStyle=col;ctx.setLineDash([4,3]);ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W-YW,y);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle=col;ctx.font='bold 16px sans-serif';ctx.textAlign='right';ctx.textBaseline=pos;ctx.fillText(lab,W-LW-4,y+(pos==='top'?2:-2))};
  const clampY=y=>Math.max(vm,Math.min(CH-vm,y));
  if(live)Object.values(positions).filter(p=>p.sym===pair).forEach(p=>{
-   const ey=clampY(Y(p.entry));dash(ey,'#e07b00',`x${p.lev||''} ENTRY`,'bottom');box(ey,p.entry.toFixed(d),'#e07b00');
-   const by=clampY(Y(p.be));dash(by,'#8c5a12',`Fee covered ${both(p.fee)}`,'top');box(by,p.be.toFixed(d),'#8c5a12');
-   if(TP[p.id]!=null){var ty=clampY(Y(+TP[p.id]));dash(ty,'#c9700e',`TP ${(+TP[p.id]).toFixed(d)}`,p.up?'top':'bottom');box(ty,(+TP[p.id]).toFixed(d),'#c9700e')}
-   if(SL[p.id]!=null){var sy=clampY(Y(+SL[p.id]));dash(sy,'#c2185b',`SL ${(+SL[p.id]).toFixed(d)}`,p.up?'bottom':'top');box(sy,(+SL[p.id]).toFixed(d),'#c2185b')}
-   if(p.liq){var ly=clampY(Y(+p.liq));dash(ly,'#E8083E',`LIQUIDATION`,p.up?'bottom':'top');box(ly,(+p.liq).toFixed(d),'#E8083E')}
-  });
- if(live){
+    const ey=clampY(Y(p.entry));dash(ey,'#e07b00',`x${p.lev||''} ENTRY`,'bottom');box(ey,p.entry.toFixed(d),'#e07b00');
+    const by=clampY(Y(p.be));dash(by,'#8c5a12',`Fee covered ${both(p.fee)}`,'top');box(by,p.be.toFixed(d),'#8c5a12');
+    if(TP[p.id]!=null){var ty=clampY(Y(+TP[p.id]));dash(ty,'#c9700e',`TP ${(+TP[p.id]).toFixed(d)}`,p.up?'top':'bottom');box(ty,(+TP[p.id]).toFixed(d),'#c9700e')}
+    if(SL[p.id]!=null){var sy=clampY(Y(+SL[p.id]));dash(sy,'#c2185b',`SL ${(+SL[p.id]).toFixed(d)}`,p.up?'bottom':'top');box(sy,(+SL[p.id]).toFixed(d),'#c2185b')}
+    if(p.liq){var ly=clampY(Y(+p.liq));dash(ly,'#E8083E',`LIQUIDATION`,p.up?'bottom':'top');box(ly,(+p.liq).toFixed(d),'#E8083E')}
+   });
+  if(live&&PEND[pair])PEND[pair].forEach(o=>{
+    const py=clampY(Y(o.price)),col=o.side==='buy'?'#02864A':'#E8083E';
+    dash(py,col,`${o.side.toUpperCase()} PEND ${o.price.toFixed(d)}`,o.side==='buy'?'bottom':'top');box(py,o.price.toFixed(d),col);
+   });
+  if(live){
    const last=all[all.length-1],y=Y(last.close),col=last.close>=last.open?'#02864A':'#E8083E';
    ctx.strokeStyle=col;ctx.setLineDash([2,4]);ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W-YW,y);ctx.stroke();ctx.setLineDash([]);
    ctx.fillStyle=col;ctx.font='bold 16px sans-serif';ctx.textAlign='right';ctx.textBaseline='bottom';ctx.fillText('LIVE',W-LW-4,y-2);
@@ -407,10 +426,11 @@ function switchView(){
  pan=0;wsSub('unsubscribe');localStorage.setItem('d_pair',pair);fillLots();
  if(!(data[pair]||[]).length){$('load').style.display='block';backfill(pair,gran()).then(()=>wsSub('subscribe'))}
  else{recalc();draw();wsSub('subscribe')}
- syncTpBtn();
- syncSlBtn();
-}
-$('pair').onchange=e=>{pair=e.target.value;switchView()};
+  syncTpBtn();
+  syncSlBtn();
+  renderPendList();
+ }
+ $('pair').onchange=e=>{pair=e.target.value;switchView()};
 $('tf').onchange=()=>{data={};switchView()};
 
 
@@ -461,6 +481,12 @@ function renderPositions(){
  renderOpen();
  syncTpBtn();
  syncSlBtn();
+ const pd=pendHtml();
+ if(pd){
+  const em=box.querySelector('.empty');if(em)em.remove();
+  box.insertAdjacentHTML('afterbegin',pd);
+  box.querySelectorAll('[data-pcancel]').forEach(b=>b.onclick=e=>{e.stopPropagation();cancelPendBy(b.dataset.psym,b.dataset.pcancel)});
+ }
  const cl=closedHtml();
  if(cl){
   const em=box.querySelector('.empty');if(em)em.remove();
@@ -468,6 +494,7 @@ function renderPositions(){
   box.querySelectorAll('.pos.cl').forEach(el=>el.onclick=()=>{openX[el.dataset.id]=!openX[el.dataset.id];el.classList.toggle('x')});
  }
  box.scrollLeft=sl;
+ renderPendList();
 }
 function renderOpen(){
  const l=Object.values(positions),box=$('plist');
@@ -624,6 +651,111 @@ setInterval(checkSl,1000);
 $('slBtn').onchange=commitSlBtn;
 $('slBtn').onkeydown=function(e){if(e.key==='Enter')$('slBtn').blur()};
 syncSlBtn();
+
+/* ---------- pending (conditional) orders ---------- */
+var PEND={};
+try{PEND=JSON.parse(localStorage.getItem('d_pend')||'{}')||{}}catch(e){PEND={}}
+function savePend(){try{localStorage.setItem('d_pend',JSON.stringify(PEND))}catch(e){}}
+var pendSide='buy';
+function pendHtml(){
+ var out=[];
+ Object.keys(PEND).forEach(function(sym){
+  (PEND[sym]||[]).forEach(function(o){
+   var col=o.side==='buy'?'#02864A':'#E8083E',cond=o.from==='below'?'rises to':(o.from==='above'?'falls to':'reaches');
+   var extra=[];
+   if(o.tp!=null)extra.push(`<span style="color:#c9700e">TP ${o.tp.toFixed(dp(o.tp))}</span>`);
+   if(o.sl!=null)extra.push(`<span style="color:#c2185b">SL ${o.sl.toFixed(dp(o.sl))}</span>`);
+   var extraRow=extra.length?`<div class="b">${extra.join(' ')}</div>`:'';
+   out.push(`<div class="pos" style="cursor:default"><div class="t"><span>${sym} ${o.side.toUpperCase()} PENDING</span><span style="color:${col}">@ ${o.price.toFixed(dp(o.price))}</span></div><div class="b"><span>${o.size} lot${o.size>1?'s':''}</span><span>Fires when price ${cond} this level</span></div>${extraRow}<div class="btns"><button data-pcancel="${o.id}" data-psym="${sym}">CANCEL</button></div></div>`);
+  });
+ });
+ return out.join('');
+}
+function cancelPendBy(sym,id){
+ PEND[sym]=(PEND[sym]||[]).filter(o=>String(o.id)!==String(id));
+ if(!PEND[sym]||!PEND[sym].length)delete PEND[sym];
+ savePend();renderPendList();renderPositions();
+}
+function renderPendList(){
+ var box=$('pendList');if(!box)return;
+ var list=PEND[pair]||[];
+ if(!list.length){box.innerHTML='<div class="empty">No pending orders for '+pair+'</div>';return}
+ box.innerHTML=list.map(function(o){
+  var col=o.side==='buy'?'#02864A':'#E8083E',tags=[];
+  if(o.tp!=null)tags.push('TP '+o.tp.toFixed(dp(o.tp)));
+  if(o.sl!=null)tags.push('SL '+o.sl.toFixed(dp(o.sl)));
+  var tagStr=tags.length?' <span style="color:#8892b0;font-weight:400">('+tags.join(' · ')+')</span>':'';
+  return `<div style="display:flex;justify-content:space-between;align-items:center;border:1px solid var(--bd);border-radius:8px;padding:6px 8px;font-size:11px"><span style="color:${col};font-weight:800">${o.side.toUpperCase()} ${o.size} lot @ ${o.price.toFixed(dp(o.price))}${tagStr}</span><button data-pcancel2="${o.id}" style="border:0;background:transparent;color:#E8083E;font-weight:800;cursor:pointer;padding:4px 8px">✕</button></div>`;
+ }).join('');
+ box.querySelectorAll('[data-pcancel2]').forEach(function(b){b.onclick=function(){cancelPendBy(pair,b.dataset.pcancel2)}});
+}
+function syncPendTabs(){
+ $('pendBuyTab').className=pendSide==='buy'?'ok':'';
+ $('pendSellTab').className=pendSide==='sell'?'ok':'';
+}
+function openPend(){
+ pendSide='buy';syncPendTabs();
+ $('pendPriceInput').value='';
+ $('pendSizeInput').value=Math.floor(+$('stake').value)||1;
+ $('pendTpInput').value='';
+ $('pendSlInput').value='';
+ renderPendList();
+ $('pendM').style.display='flex';
+ setTimeout(function(){$('pendPriceInput').focus()},0);
+}
+$('pendBuyTab').onclick=function(){pendSide='buy';syncPendTabs()};
+$('pendSellTab').onclick=function(){pendSide='sell';syncPendTabs()};
+$('pendX').onclick=function(){$('pendM').style.display='none'};
+$('pendM').onclick=function(e){if(e.target.id==='pendM')$('pendM').style.display='none'};
+$('pendSave').onclick=function(){
+ var p=+$('pendPriceInput').value,sz=Math.floor(+$('pendSizeInput').value)||0;
+ if(!p||p<=0)return alert('Enter a valid trigger price.');
+ if(sz<1)return alert('Enter a valid lot size.');
+ var tpRaw=$('pendTpInput').value.trim(),slRaw=$('pendSlInput').value.trim();
+ var tp=tpRaw===''?null:+tpRaw,sl=slRaw===''?null:+slRaw;
+ if(tp!=null&&tp<=0)return alert('Take profit must be a positive price, or leave it blank.');
+ if(sl!=null&&sl<=0)return alert('Stop loss must be a positive price, or leave it blank.');
+ var a=data[pair],last=a&&a.length?a[a.length-1].close:null;
+ var from=last==null?'at':(last>p?'above':(last<p?'below':'at'));
+ var o={id:Date.now()+Math.random().toString(36).slice(2,7),side:pendSide,price:p,size:sz,from:from,tp:tp,sl:sl};
+ (PEND[pair]=PEND[pair]||[]).push(o);
+ savePend();renderPendList();renderPositions();
+ $('pendPriceInput').value='';$('pendTpInput').value='';$('pendSlInput').value='';
+};
+$('pendBtn').onclick=openPend;
+function checkPend(){
+ var changed=false;
+ Object.keys(PEND).forEach(function(sym){
+  var a=data[sym];if(!a||!a.length)return;
+  var last=a[a.length-1].close,list=PEND[sym]||[],keep=[];
+  list.forEach(function(o){
+   var hit=o.from==='below'?last>=o.price:(o.from==='above'?last<=o.price:true);
+   if(hit){changed=true;firePend(sym,o)}else keep.push(o);
+  });
+  if(keep.length)PEND[sym]=keep;else delete PEND[sym];
+ });
+ if(changed){savePend();renderPositions()}
+}
+async function firePend(sym,o){
+ var pr=products[sym];
+ if(!pr){alert('Pending order skipped: '+sym+' product info not loaded.');return}
+ var lev=+$('lev').value||1;
+ try{
+  var lv=await api('POST','/v2/products/'+pr.id+'/orders/leverage',{auth:true,body:{leverage:String(lev)}});
+  if(lv.success===false)throw new Error('Leverage: '+JSON.stringify(lv.error));
+  lastLev[sym]=lev;
+  var r=await api('POST','/v2/orders',{auth:true,body:{product_id:pr.id,side:o.side,size:o.size,order_type:'market_order'}});
+  if(!r.success)throw new Error(JSON.stringify(r.error));
+  await poll();applyAllPendingTp();
+  var ps=Object.values(positions).filter(function(p){return p.sym===sym});
+  if(ps.length){
+   if(o.tp!=null){TP[ps[0].id]=o.tp;saveTp()}
+   if(o.sl!=null){SL[ps[0].id]=o.sl;saveSl()}
+  }
+  renderPositions();
+ }catch(e){alert('Pending order failed ('+sym+' '+o.side.toUpperCase()+' @ '+o.price+'): '+(e.message||e))}
+}
+setInterval(checkPend,1000);
 
 /* ---------- trading ---------- */
 async function trade(up){
